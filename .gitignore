@@ -32,3 +32,5 @@ jobguard-records-*.csv
 jobguard-records.json
 jobguard-favorites.json
 jobguard-agencies.json
+
+.claude/
