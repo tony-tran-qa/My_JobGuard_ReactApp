@@ -1,0 +1,34 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# User data / backups (never commit)
+jobguard-blacklist.json
+jobguard-all-records.json
+jobguard-records-*.json
+jobguard-records-*.csv
+*.bak*
+jobguard-records.json
+jobguard-favorites.json
+jobguard-agencies.json
