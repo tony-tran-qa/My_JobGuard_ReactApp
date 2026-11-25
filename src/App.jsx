@@ -18,22 +18,22 @@ const DEFAULT_BLACKLIST = [
 ];
 
 function loadBL()       { try { const s = localStorage.getItem(STORAGE_KEY);  return s ? JSON.parse(s) : DEFAULT_BLACKLIST; } catch { return DEFAULT_BLACKLIST; } }
-function saveBL(l)      { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(l)); } catch {} }
+function saveBL(l)      { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(l)); } catch { /* storage unavailable: keep going without saving */ } }
 function loadKey()      { try { return localStorage.getItem(API_KEY_STORE) || ""; } catch { return ""; } }
-function saveKey(k)     { try { localStorage.setItem(API_KEY_STORE, k); } catch {} }
+function saveKey(k)     { try { localStorage.setItem(API_KEY_STORE, k); } catch { /* storage unavailable: keep going without saving */ } }
 function loadRecords()  { try { const s = localStorage.getItem(RECORDS_KEY); return s ? JSON.parse(s) : []; } catch { return []; } }
 function loadFavs()     { try { const s = localStorage.getItem(FAVS_KEY);    return s ? JSON.parse(s) : []; } catch { return []; } }
 function loadOrgs()     { try { const s = localStorage.getItem(ORGS_KEY);    return s ? JSON.parse(s) : []; } catch { return []; } }
-function saveOrgs(o)    { try { localStorage.setItem(ORGS_KEY, JSON.stringify(o)); } catch {} }
-function saveFavs(f)    { try { localStorage.setItem(FAVS_KEY, JSON.stringify(f)); } catch {} }
-function saveRecords(r) { try { localStorage.setItem(RECORDS_KEY, JSON.stringify(r)); } catch {} }
+function saveOrgs(o)    { try { localStorage.setItem(ORGS_KEY, JSON.stringify(o)); } catch { /* storage unavailable: keep going without saving */ } }
+function saveFavs(f)    { try { localStorage.setItem(FAVS_KEY, JSON.stringify(f)); } catch { /* storage unavailable: keep going without saving */ } }
+function saveRecords(r) { try { localStorage.setItem(RECORDS_KEY, JSON.stringify(r)); } catch { /* storage unavailable: keep going without saving */ } }
 
 function getCached(company, role) {
   try {
     const cache = JSON.parse(localStorage.getItem(CACHE_KEY) || "{}");
     const entry = cache[`${company}::${role}`.toLowerCase()];
     if (entry && Date.now() - entry.ts < 86400000) return { ...entry.result, fromCache: true };
-  } catch {}
+  } catch { /* storage unavailable: keep going without saving */ }
   return null;
 }
 function setCached(company, role, result) {
@@ -43,7 +43,7 @@ function setCached(company, role, result) {
     const keys = Object.keys(cache);
     if (keys.length > 100) delete cache[keys[0]];
     localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
-  } catch {}
+  } catch { /* storage unavailable: keep going without saving */ }
 }
 
 // ── UTILITIES ─────────────────────────────────────────────────────
