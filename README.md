@@ -6,7 +6,7 @@ Companion projects: the JobGuard Chrome extension (separate repo) and an unfinis
 
 ## Features
 
-- **Vet:** enter a company name, an optional homepage URL and role. The app returns a risk level, a recommendation, red and green flags, company intel and verification steps.
+- **Vet:** enter a company name, an optional homepage URL and role. The app returns a risk level, a recommendation, red and green flags, company intel and verification steps. The summary shows the company and its home website: the URL you typed, or the website the AI knows, labelled as AI suggested so you can verify it yourself. The website is saved with each record.
 - **Records:** every vetting is saved. Search, filter by risk, recommendation, ownership or firm type, and sort.
 - **Favorites:** bookmark companies you want to apply to.
 - **Agencies:** list staffing / recruiter and IT consulting firms, so Records can show whether a company is a direct employer. Firms the AI labels as staffing or IT consulting are added automatically.
@@ -72,7 +72,9 @@ index.html     Vite entry
 
 ## Git operations
 
-Commands are for PowerShell, run from the project folder. This repo is `https://github.com/tony-tran-qa/My_JobGuard_ReactApp`, branch `main`.
+Commands are for PowerShell, run from the project root folder. Any terminal works as long as it is in that folder: the VS Code terminal (Terminal > New Terminal, opens in the project root), a standalone PowerShell or Windows Terminal window (`cd` to the project folder first), or Command Prompt or Git Bash (same commands, except `Add-Content` is PowerShell only). Check with `pwd` before running git.
+
+This repo is `https://github.com/tony-tran-qa/My_JobGuard_ReactApp`, branch `main`.
 
 ### First-time setup (already done for this repo)
 
