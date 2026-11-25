@@ -54,6 +54,11 @@ function extractDomain(url) {
   } catch { return ""; }
 }
 
+// Company website: the URL the user typed wins, else the AI's own answer.
+function siteFor(url, res) {
+  return extractDomain(url || "") || extractDomain(res?.website || "");
+}
+
 // ── API ───────────────────────────────────────────────────────────
 async function vetCompanyWithAI(companyName, role, apiKey, url) {
   const cached = getCached(companyName, role);
@@ -82,6 +87,7 @@ Reply with ONLY raw JSON (no markdown fences, no extra text):
   "annualRevenue": "e.g. <$1M, $1M-$10M, $10M-$50M, $50M-$200M, $200M-$1B, $1B-$10B, $10B+, or Unknown",
   "founded": "year founded or Unknown",
   "headquarters": "City, Country or Unknown",
+  "website": "the company's official homepage domain if you know it, e.g. anthropic.com, otherwise Unknown",
   "confidenceNote": "brief note on data confidence, e.g. Well-known public company — data reliable or Limited public info — estimates only"
 }
 
@@ -136,6 +142,7 @@ headcount and annualRevenue should be ranges, not exact figures.${url ? `\nIf a 
   result.annualRevenue     = result.annualRevenue  || "Unknown";
   result.founded           = result.founded        || "Unknown";
   result.headquarters      = result.headquarters   || "Unknown";
+  result.website           = result.website        || "Unknown";
   result.confidenceNote    = result.confidenceNote || "";
 
   setCached(companyName, role, result);
@@ -484,7 +491,7 @@ export default function CompanyVetter() {
     return blacklist.find(e => e.name.toLowerCase().includes(lower) || lower.includes(e.name.toLowerCase()));
   };
 
-  const addRecord = (company, role, res) => {
+  const addRecord = (company, role, res, url) => {
     const record = {
       id: Date.now(), ts: Date.now(),
       company: company.trim(), role: role.trim(),
@@ -499,6 +506,8 @@ export default function CompanyVetter() {
       annualRevenue: res.annualRevenue,
       founded: res.founded,
       headquarters: res.headquarters,
+      url: url || "",
+      website: siteFor(url, res),
       confidenceNote: res.confidenceNote,
       fromCache: !!res.fromCache,
     };
@@ -533,7 +542,7 @@ export default function CompanyVetter() {
     try {
       const res = await vetCompanyWithAI(name, role.trim(), apiKey, urlVal || undefined);
       setResult(res);
-      addRecord(name, role, res);
+      addRecord(name, role, res, urlVal);
     } catch (e) {
       setError(friendlyError(e));
     } finally { setLoading(false); }
@@ -743,6 +752,13 @@ export default function CompanyVetter() {
                 </div>
 
                 <div style={{ background:"#0a1218", border:`1px solid ${riskCfg.border}`, borderTop:"none", borderRadius:"0 0 8px 8px", padding:"14px 16px", marginBottom:14 }}>
+                  {!companyUrl.trim() && (
+                    <div data-testid="vetted-site" style={{ display:"flex", alignItems:"center", gap:6, marginBottom:10, padding:"6px 10px", background:"#060d14", borderRadius:5, border:"1px solid #1a2f4a", fontSize:10, color:"#2a5a8c" }}>
+                      <span>🏢</span><b style={{ color:"#c8d6e5", fontWeight:500 }}>{companyName.trim()}</b>
+                      <span>·</span><span>🌐</span>
+                      {siteFor("", result) ? <><a href={"https://" + siteFor("", result)} target="_blank" rel="noopener noreferrer" style={{ color:"#4a9eff", textDecoration:"none" }}>{siteFor("", result)}</a><span>(AI suggested, verify it yourself)</span></> : <span>website unknown</span>}
+                    </div>
+                  )}
                   {companyUrl.trim() && (
                     <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:10, padding:"6px 10px", background:"#060d14", borderRadius:5, border:"1px solid #1a2f4a" }}>
                       <span style={{ fontSize:11, color:"#2a5a8c" }}>🔗</span>
@@ -968,6 +984,7 @@ export default function CompanyVetter() {
                           <IntelPill icon="💰" label="Revenue"    value={rec.annualRevenue}  dim="#86efac" />
                           <IntelPill icon="📅" label="Founded"    value={rec.founded}        />
                           <IntelPill icon="📍" label="HQ"         value={rec.headquarters}   />
+                          <IntelPill icon="🌐" label="Website"    value={rec.website}        />
                         </div>
                         {rec.confidenceNote && (
                           <div style={{ fontSize:10, color:"#2a4a6a", fontStyle:"italic", marginTop:6, paddingLeft:4 }}>ℹ {rec.confidenceNote}</div>
@@ -1109,6 +1126,7 @@ export default function CompanyVetter() {
                               <IntelPill icon="💰" label="Revenue"   value={fav.annualRevenue} dim="#86efac" />
                               <IntelPill icon="📅" label="Founded"   value={fav.founded}      />
                               <IntelPill icon="📍" label="HQ"        value={fav.headquarters} />
+                              <IntelPill icon="🌐" label="Website"   value={fav.website}      />
                             </div>
                             {fav.confidenceNote && <div style={{ fontSize:10, color:"#2a4a6a", fontStyle:"italic", marginTop:6, paddingLeft:4 }}>ℹ {fav.confidenceNote}</div>}
                           </div>
