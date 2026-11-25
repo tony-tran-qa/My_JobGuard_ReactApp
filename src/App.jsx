@@ -76,6 +76,7 @@ Reply with ONLY raw JSON (no markdown fences, no extra text):
   "greenFlags": ["up to 3 specific green flags"],
   "verificationSteps": ["step1", "step2", "step3"],
   "companyType": "e.g. Software / SaaS, Staffing Agency, Financial Services, Healthcare, Retail, Manufacturing, Consulting, etc.",
+  "orgType": "Staffing / Recruiter" | "IT Consulting" | "Other",
   "ownership": "Public" | "Private" | "Non-Profit" | "Government" | "Unknown",
   "headcount": "e.g. 1-10, 11-50, 51-200, 201-500, 501-1000, 1001-5000, 5001-10000, 10000+, or Unknown",
   "annualRevenue": "e.g. <$1M, $1M-$10M, $10M-$50M, $50M-$200M, $200M-$1B, $1B-$10B, $10B+, or Unknown",
@@ -84,6 +85,7 @@ Reply with ONLY raw JSON (no markdown fences, no extra text):
   "confidenceNote": "brief note on data confidence, e.g. Well-known public company — data reliable or Limited public info — estimates only"
 }
 
+orgType: use "Staffing / Recruiter" for a staffing agency, recruiting or headhunting firm, or contract workforce provider (including IT staffing firms such as Procom or Robert Half). Use "IT Consulting" for an IT consulting, IT services or systems integration firm that is not mainly a staffing firm. Use "Other" for everything else.
 For well-known companies (Google, Microsoft, Anthropic, etc.) use accurate known data.
 For obscure or likely fake companies, use Unknown for financial fields and note low confidence.
 headcount and annualRevenue should be ranges, not exact figures.${url ? `\nIf a Homepage URL is provided, use the domain to help identify and verify the company. A mismatched or suspicious domain (e.g. typosquatting, free hosting) should be flagged as a red flag.` : ""}\nYou have no internet access and cannot search. Base your judgment only on the company name, role, and URL given plus your own training knowledge. Never write that a company is missing from, unregistered in, or unverifiable in any database, registry, directory, search engine, LinkedIn, or Glassdoor. If you do not know a company, say only that you do not recognize it.\nNot recognizing a company is NOT evidence of fraud. If you do not recognize the company and the role and URL show no concrete scam signals, use riskLevel MEDIUM and recommendation CAUTION, and say it is unverified.\nThese are concrete scam signals, and any ONE of them requires riskLevel HIGH and recommendation AVOID, even if the company is unknown: (1) a role that involves receiving, holding, transferring, or processing money, payments, or checks for the employer; (2) receiving and reshipping packages; (3) vague remote data-entry or clerical work offered by a generic, unidentifiable company; (4) mystery shopping; (5) trading or managing cryptocurrency on someone's behalf; (6) impersonating a government agency or a well-known brand, including a lookalike, typosquatted, cheap-TLD, or free-hosting domain.\nIf you list a red flag that matches one of these signals, your recommendation must be AVOID, not CAUTION.`;
@@ -285,7 +287,8 @@ function matchOrg(orgs, company) {
 }
 
 // Infer a firm type from the AI-reported companyType text (e.g. "Staffing Agency / Workforce Solutions").
-function inferOrgType(companyType) {
+function inferOrgType(companyType, orgType) {
+  if (ORG_TYPES.includes(orgType)) return orgType;
   const t = (companyType || "").toLowerCase();
   if (/staffing|recruit|head-?hunt|talent|workforce|placement/.test(t)) return ORG_TYPES[0];
   if (/(it|technology|software|tech)\s+(consult|services)|systems integrat|it consult/.test(t)) return ORG_TYPES[1];
@@ -295,7 +298,7 @@ function inferOrgType(companyType) {
 function orgTypeFor(orgs, rec) {
   const m = matchOrg(orgs, rec.company);
   if (m) return { type: m.type, listed: true };
-  const inf = inferOrgType(rec.companyType);
+  const inf = inferOrgType(rec.companyType, rec.orgType);
   return inf ? { type: inf, listed: false } : null;
 }
 
@@ -387,7 +390,7 @@ export default function CompanyVetter() {
   const scanRecordsForOrgs = () => {
     const next = [...orgs];
     records.forEach(r => {
-      const inf = inferOrgType(r.companyType);
+      const inf = inferOrgType(r.companyType, r.orgType);
       if (inf && !next.some(e => e.name.toLowerCase() === r.company.toLowerCase())) next.push({ name: r.company, url: "", type: inf, note: "Auto-added from vetting" });
     });
     const added = next.length - orgs.length;
@@ -490,6 +493,7 @@ export default function CompanyVetter() {
       redFlags: res.redFlags, greenFlags: res.greenFlags,
       verificationSteps: res.verificationSteps,
       companyType: res.companyType,
+      orgType: res.orgType,
       ownership: res.ownership,
       headcount: res.headcount,
       annualRevenue: res.annualRevenue,
@@ -498,7 +502,7 @@ export default function CompanyVetter() {
       confidenceNote: res.confidenceNote,
       fromCache: !!res.fromCache,
     };
-    const inferred = inferOrgType(res.companyType);
+    const inferred = inferOrgType(res.companyType, res.orgType);
     if (inferred) setOrgs(cur => cur.some(e => e.name.toLowerCase() === company.trim().toLowerCase()) ? cur : [...cur, { name: company.trim(), url: "", type: inferred, note: "Auto-added from vetting" }]);
     setRecords(prev => {
       const idx = prev.findIndex(r =>
