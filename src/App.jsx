@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { applyGuardrails } from "./guardrails.js";
 
 // ── STORAGE ──────────────────────────────────────────────────────
 const STORAGE_KEY    = "jg_blacklist";
@@ -28,18 +29,21 @@ function saveOrgs(o)    { try { localStorage.setItem(ORGS_KEY, JSON.stringify(o)
 function saveFavs(f)    { try { localStorage.setItem(FAVS_KEY, JSON.stringify(f)); } catch { /* storage unavailable: keep going without saving */ } }
 function saveRecords(r) { try { localStorage.setItem(RECORDS_KEY, JSON.stringify(r)); } catch { /* storage unavailable: keep going without saving */ } }
 
-function getCached(company, role) {
+function cacheKeyFor(company, role, url) {
+  return `${company}::${role}::${extractDomain(url || "")}`.toLowerCase();
+}
+function getCached(company, role, url) {
   try {
     const cache = JSON.parse(localStorage.getItem(CACHE_KEY) || "{}");
-    const entry = cache[`${company}::${role}`.toLowerCase()];
+    const entry = cache[cacheKeyFor(company, role, url)];
     if (entry && Date.now() - entry.ts < 86400000) return { ...entry.result, fromCache: true };
   } catch { /* storage unavailable: keep going without saving */ }
   return null;
 }
-function setCached(company, role, result) {
+function setCached(company, role, result, url) {
   try {
     const cache = JSON.parse(localStorage.getItem(CACHE_KEY) || "{}");
-    cache[`${company}::${role}`.toLowerCase()] = { result, ts: Date.now() };
+    cache[cacheKeyFor(company, role, url)] = { result, ts: Date.now() };
     const keys = Object.keys(cache);
     if (keys.length > 100) delete cache[keys[0]];
     localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
@@ -61,7 +65,7 @@ function siteFor(url, res) {
 
 // ── API ───────────────────────────────────────────────────────────
 async function vetCompanyWithAI(companyName, role, apiKey, url) {
-  const cached = getCached(companyName, role);
+  const cached = getCached(companyName, role, url);
   if (cached) return cached;
 
   if (!apiKey?.trim())           throw { code: "NO_KEY" };
@@ -76,6 +80,7 @@ Reply with ONLY raw JSON (no markdown fences, no extra text):
 {
   "riskLevel": "LOW" | "MEDIUM" | "HIGH",
   "recommendation": "APPLY" | "CAUTION" | "AVOID",
+  "triggeredSignals": [numbers 1 to 6 of the concrete scam signals listed below that clearly apply, or [] if none apply],
   "verdict": "one concise sentence summarizing legitimacy",
   "redFlags": ["up to 3 specific red flags"],
   "greenFlags": ["up to 3 specific green flags"],
@@ -94,7 +99,7 @@ Reply with ONLY raw JSON (no markdown fences, no extra text):
 orgType: use "Staffing / Recruiter" for a staffing agency, recruiting or headhunting firm, or contract workforce provider (including IT staffing firms such as Procom or Robert Half). Use "IT Consulting" for an IT consulting, IT services or systems integration firm that is not mainly a staffing firm. Use "Other" for everything else.
 For well-known companies (Google, Microsoft, Anthropic, etc.) use accurate known data.
 For obscure or likely fake companies, use Unknown for financial fields and note low confidence.
-headcount and annualRevenue should be ranges, not exact figures.${url ? `\nIf a Homepage URL is provided, use the domain to help identify and verify the company. A mismatched or suspicious domain (e.g. typosquatting, free hosting) should be flagged as a red flag.` : ""}\nYou have no internet access and cannot search. Base your judgment only on the company name, role, and URL given plus your own training knowledge. Never write that a company is missing from, unregistered in, or unverifiable in any database, registry, directory, search engine, LinkedIn, or Glassdoor. If you do not know a company, say only that you do not recognize it.\nNot recognizing a company is NOT evidence of fraud. If you do not recognize the company and the role and URL show no concrete scam signals, use riskLevel MEDIUM and recommendation CAUTION, and say it is unverified.\nThese are concrete scam signals, and any ONE of them requires riskLevel HIGH and recommendation AVOID, even if the company is unknown: (1) a role that involves receiving, holding, transferring, or processing money, payments, or checks for the employer; (2) receiving and reshipping packages; (3) vague remote data-entry or clerical work offered by a generic, unidentifiable company; (4) mystery shopping; (5) trading or managing cryptocurrency on someone's behalf; (6) impersonating a government agency or a well-known brand, including a lookalike, typosquatted, cheap-TLD, or free-hosting domain.\nIf you list a red flag that matches one of these signals, your recommendation must be AVOID, not CAUTION.`;
+headcount and annualRevenue should be ranges, not exact figures.${url ? `\nIf a Homepage URL is provided, use the domain to help identify and verify the company. A mismatched or suspicious domain (e.g. typosquatting, free hosting) should be flagged as a red flag.` : ""}\nYou have no internet access and cannot search. Base your judgment only on the company name, role, and URL given plus your own training knowledge. Never write that a company is missing from, unregistered in, or unverifiable in any database, registry, directory, search engine, LinkedIn, or Glassdoor. If you do not know a company, say only that you do not recognize it.\nNot recognizing a company is NOT evidence of fraud. If you do not recognize the company and the role and URL show no concrete scam signals, use riskLevel MEDIUM and recommendation CAUTION, and say it is unverified.\nThese are concrete scam signals, and any ONE of them requires riskLevel HIGH and recommendation AVOID, even if the company is unknown: (1) a role that involves receiving, holding, transferring, or processing money, payments, or checks for the employer; (2) receiving and reshipping packages; (3) vague remote data-entry or clerical work offered by a generic, unidentifiable company; (4) mystery shopping; (5) trading or managing cryptocurrency on someone's behalf; (6) impersonating a government agency or a well-known brand, including a lookalike, typosquatted, cheap-TLD, or free-hosting domain.\nOnly cite a signal if the company, role or URL clearly shows it. A name that sounds generic, a .com or other common domain, a company you do not know, or being a job board or job aggregator is NOT a scam signal and must not be listed as a red flag. If none of the six signals applies, riskLevel must not be HIGH and recommendation must not be AVOID.`;
 
   let response;
   try {
@@ -109,6 +114,7 @@ headcount and annualRevenue should be ranges, not exact figures.${url ? `\nIf a 
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
         max_tokens: 900,
+        temperature: 0,
         messages: [{ role: "user", content: prompt }],
       }),
     });
@@ -145,7 +151,10 @@ headcount and annualRevenue should be ranges, not exact figures.${url ? `\nIf a 
   result.website           = result.website        || "Unknown";
   result.confidenceNote    = result.confidenceNote || "";
 
-  setCached(companyName, role, result);
+  // Enforce the scoring rule in code: HIGH / AVOID needs a cited concrete signal
+  applyGuardrails(result);
+
+  setCached(companyName, role, result, url);
   return result;
 }
 
